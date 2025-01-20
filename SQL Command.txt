@@ -30,5 +30,46 @@ CREATE TABLE resources (
 );
 
 
-make a sql command for this . in sql command dont add id . add a attribute subTopic which will be "Condition" for every row. Dont change any variable name. table name is concepts
+CREATE TABLE Courses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT
+);
 
+CREATE TABLE Chapters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    course_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    FOREIGN KEY (course_id) REFERENCES Courses(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE Topics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chapter_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    FOREIGN KEY (chapter_id) REFERENCES Chapters(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE Content (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    topic_id INT NOT NULL,
+    exercise TEXT,
+    solution TEXT,
+    image_url VARCHAR(255),
+    FOREIGN KEY (topic_id) REFERENCES Topics(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+ALTER TABLE Topics
+ADD COLUMN explanation TEXT;
+
+
+ALTER TABLE image_table RENAME TO Contents;
+ALTER TABLE Contents ADD COLUMN exercise TEXT, ADD COLUMN solution TEXT;
+ALTER TABLE contents ADD COLUMN topic_id INT NOT NULL, ADD CONSTRAINT fk_topic_id FOREIGN KEY (topic_id) REFERENCES Topics(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE courses CHANGE name title VARCHAR(255);
