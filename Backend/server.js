@@ -57,7 +57,7 @@ app.post('/upload', upload.single('image'), (req, res) => {
 });
 
 // Show all contents
-app.get('/contents', (req, res) => {
+app.get('/api/contents', (req, res) => {
   const query = 'SELECT * FROM contents';
   db.query(query, (err, results) => {
     if (err) {
@@ -71,13 +71,83 @@ app.get('/contents', (req, res) => {
 app.get('/contents/:topic_id', (req, res) => {
   const { topic_id } = req.params;
   const query = 'SELECT * FROM contents WHERE topic_id = ?';
-  
   db.query(query, [topic_id], (err, results) => {
     if (err) {
       console.error('Error fetching contents:', err);
       return res.status(500).json({ message: 'Database error' });
     }
-    res.status(200).json(results);
+    res.json(results);
+  });
+});
+// PUT: Edit content by ID
+app.put('/content/:id', upload.single('image'), (req, res) => {
+  const { id } = req.params;
+  const { exercise, solution, topic_id } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  let query = 'UPDATE contents SET exercise = ?, solution = ?, topic_id = ?';
+  const params = [exercise, solution, topic_id];
+
+  if (image) {
+    query += ', image = ?';
+    params.push(image);
+  }
+
+  query += ' WHERE id = ?';
+  params.push(id);
+
+  db.query(query, params, (err, result) => {
+    if (err) {
+      console.error('Error updating content:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    res.status(200).json({ message: 'Content updated successfully' });
+  });
+});
+
+const fs = require('fs');
+
+// DELETE: Delete content by ID and remove the image file from storage
+app.delete('/content/:id', (req, res) => {
+  const { id } = req.params;
+
+  // First, fetch the content to get the image path
+  const getQuery = 'SELECT image FROM contents WHERE id = ?';
+  db.query(getQuery, [id], (err, result) => {
+    if (err) {
+      console.error('Error fetching content:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    
+    if (result.length === 0) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    
+    const imagePath = result[0].image;
+    const imageFullPath = path.join(__dirname, '../BlogSite/public/images', imagePath);
+
+    // Delete the image file from storage
+    fs.unlink(imageFullPath, (fsErr) => {
+      if (fsErr) {
+        console.error('Error deleting image file:', fsErr);
+      }
+      
+      // Proceed with deleting the content from the database
+      const deleteQuery = 'DELETE FROM contents WHERE id = ?';
+      db.query(deleteQuery, [id], (delErr, delResult) => {
+        if (delErr) {
+          console.error('Error deleting content:', delErr);
+          return res.status(500).json({ message: 'Database error' });
+        }
+        if (delResult.affectedRows === 0) {
+          return res.status(404).json({ message: 'Content not found' });
+        }
+        res.status(200).json({ message: 'Content and image deleted successfully' });
+      });
+    });
   });
 });
 
@@ -280,6 +350,20 @@ app.get('/api/courses', (req, res) => {
     res.json(result);
   });
 });
+app.get('/api/courses/:id', (req, res) => {
+  const { id } = req.params;
+  const query = 'SELECT * FROM courses WHERE id = ?';
+  db.query(query, [id], (err, results) => {
+    if (err) {
+      console.error('Error fetching course by ID:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    res.json(results[0]);
+  });
+});
 
 app.post('/api/courses', (req, res) => {
   const { title, description } = req.body;  // Changed name to title
@@ -327,6 +411,20 @@ app.get('/api/chapters', (req, res) => {
     res.json(result);
   });
 });
+app.get('/api/chapters/:course_id', (req, res) => {
+  const { course_id } = req.params;  
+  const query = 'SELECT * FROM chapters WHERE course_id = ?';
+  
+  db.query(query, [course_id], (err, results) => {
+    if (err) {
+      console.error('Error fetching chapters:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
+
 
 // Add a new chapter
 app.post('/api/chapters', (req, res) => {
@@ -376,6 +474,27 @@ app.get('/api/topics', (req, res) => {
       return res.status(500).json({ message: 'Failed to fetch topics' });
     }
     res.json(result);
+  });
+});
+app.get('/api/topics/:chapter_id', (req, res) => {
+  const chapter_id = parseInt(req.params.chapter_id, 10); // Ensure it's an integer
+  if (isNaN(chapter_id)) {
+    return res.status(400).json({ message: 'Invalid chapter ID' });
+  }
+
+  const query = 'SELECT * FROM topics WHERE chapter_id = ?';
+  
+  db.query(query, [chapter_id], (err, results) => {
+    if (err) {
+      console.error('Error fetching topics by chapter_id:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    
+    if (!results || results.length === 0) {
+      return res.status(200).json([]); // Return empty array instead of 404 error
+    }
+
+    res.json(results); // Return full array of topics
   });
 });
 
